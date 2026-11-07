@@ -3,9 +3,10 @@
 Software for a vehicle and asset tracking business (Nigeria and other African
 countries), built on top of the hardware vendor's platform API.
 
+- **Web dashboard:** [web/](web/) (React; live map, history, alarms, engine cut, customers, users)
+- **Backend:** [server/](server/)
 - **Dashboard API (for the web and mobile apps):** [docs/dashboard-api.md](docs/dashboard-api.md)
 - **Vendor API reference (English):** [docs/vendor-api/](docs/vendor-api/README.md)
-- **Backend:** [server/](server/)
 
 ## How it works
 
@@ -42,32 +43,88 @@ forbidden**). So:
 | Accounts: platform → resellers → customers (business / individual), users with roles | `server/src/api/`, `server/src/repo/` | Done, tested on PostgreSQL |
 | Login by email or phone (Nigerian formats), scrypt passwords, sessions, brute-force blocking | `server/src/auth/` | Done, tested |
 | Dashboard API: devices, live map, live stream (SSE), history, alarms, engine cut with audit log, subscription expiry | `server/src/api/routes/` | Done, tested on PostgreSQL |
-| Web dashboard, mobile app, SMS/push notifications, payments | | Next |
+| Web dashboard: live map (updates in real time), vehicle details, engine cut/restore with typed confirmation, history playback with stops and trip stats, alarms, vehicles, customers, users, account. Works on phones. | `web/` | Done, tested in a browser (desktop and phone) |
+| Demo data and vehicle simulator | `server/src/cli/` | Done |
+| Mobile app, SMS/push notifications, payments | | Next |
 
-## Running locally
+## Try it with demo data
 
-Requirements: Node.js 20+, PostgreSQL 14+ (or Docker).
+Requirements: Node.js 22.9+, PostgreSQL 14+ (or Docker).
 
 ```bash
-docker compose up -d          # PostgreSQL on localhost:5432
+docker compose up -d                 # PostgreSQL on localhost:5432
 cd server
-cp .env.example .env          # then fill in the values
+cp .env.example .env                 # the defaults work for the demo
 npm install
-npm run dev                   # applies migrations, listens on :3000
+npm run seed-demo                    # demo customers, 9 vehicles, 24 h of history, alarms
+npm run dev                          # API on :3000
 ```
+
+In a second terminal, make the demo vehicles move:
+
+```bash
+cd server
+npm run simulate
+```
+
+In a third terminal, start the dashboard:
+
+```bash
+cd web
+npm install
+npm run dev                          # http://localhost:5173
+```
+
+Demo logins (password `demo-password`):
+
+| Who | Login | Sees |
+|---|---|---|
+| Your company (platform admin) | `admin@demo.ng` | Everything, customers, inventory |
+| Business fleet owner | `0803 000 0101` | Lagos Logistics: 6 vehicles, one expired, one never installed |
+| Fleet control room (operator) | `ops@lagoslogistics.ng` | Same vehicles; can handle alarms, cannot cut engines |
+| Individual customer | `0803 000 0201` | One car |
+| Reseller admin | `aisha@abujapartners.ng` | Their own customer (Capital Cabs) only |
+
+The demo has no real vendor, so engine-cut shows "could not reach the tracking platform".
+
+## Running for real
 
 Create your company and its first owner (once):
 
 ```bash
+cd server
 ADMIN_PASSWORD='choose-a-strong-one' npm run create-admin -- --company "Your Company Ltd" --name "Your Name" --phone 0803xxxxxxx
 ```
 
-Then log in with `POST /api/auth/login` (see [docs/dashboard-api.md](docs/dashboard-api.md)).
+Production: build the dashboard and let the server host it, so everything is on one domain:
 
-Tests:
+```bash
+cd web
+npm ci
+npm run build
+```
 
 ```bash
 cd server
+npm ci
+npm run build
+WEB_DIST_DIR=../web/dist npm start
+```
+
+Put it behind HTTPS (Caddy or nginx). Map tiles: the default OpenStreetMap
+servers are not for commercial traffic. Get a key from a tile provider
+(MapTiler, Stadia Maps, Thunderforest…) and set `VITE_TILE_URL` in
+`web/.env` before building.
+
+## Tests
+
+```bash
+cd server
+npm test
+```
+
+```bash
+cd web
 npm test
 ```
 
@@ -76,6 +133,12 @@ and recreate the schema**, so use a throwaway database:
 
 ```bash
 TEST_DATABASE_URL=postgres://gpstracker:gpstracker@localhost:5432/gpstracker_test npm test
+```
+
+Browser walkthrough of the whole dashboard (needs the demo data and Playwright):
+
+```bash
+node web/e2e/walkthrough.cjs ./screenshots http://localhost:3000
 ```
 
 ## Connecting the vendor platform

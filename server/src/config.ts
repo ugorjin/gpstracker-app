@@ -51,6 +51,8 @@ const schema = z.object({
   SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
   /** No push received for this long = device shown as offline. */
   OFFLINE_AFTER_MINUTES: z.coerce.number().int().min(1).default(30),
+  /** Built web dashboard to serve at / (e.g. ../web/dist). Empty = API only. */
+  WEB_DIST_DIR: z.string().optional(),
 });
 
 export type Config = z.infer<typeof schema>;

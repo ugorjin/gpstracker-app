@@ -34,6 +34,7 @@ async function main() {
     limiter,
     checkDb: async () => (await pool.query('SELECT 1')).rowCount === 1,
     corsOrigins: config.CORS_ORIGINS,
+    webDir: config.WEB_DIST_DIR || undefined,
     push: {
       store: new PostgresPushStore(pool),
       appId: config.PUSH_APP_ID,

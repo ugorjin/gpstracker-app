@@ -1,4 +1,7 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import cors from '@fastify/cors';
+import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { dashboardApi } from './api/index.js';
 import type { ApiOptions } from './api/context.js';
@@ -16,6 +19,8 @@ export interface AppDeps {
   /** Returns false if the database is unreachable. */
   checkDb?: () => Promise<boolean>;
   logger?: FastifyServerOptions['logger'];
+  /** Folder with the built web dashboard (web/dist). Served at / when set. */
+  webDir?: string;
 }
 
 /** Hides session tokens passed in the URL (live stream) from request logs. */
@@ -41,6 +46,12 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     bodyLimit: 1024 * 1024,
   });
   const events = deps.events ?? new PushEvents();
+
+  app.addHook('onSend', async (_req, reply) => {
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+    reply.header('X-Frame-Options', 'DENY');
+  });
 
   app.get('/health', async (_req, reply) => {
     const db = deps.checkDb ? await deps.checkDb().catch(() => false) : true;
@@ -71,6 +82,33 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       { prefix: '/api' },
     );
   }
+
+  if (deps.webDir) {
+    const root = resolve(deps.webDir);
+    if (!existsSync(resolve(root, 'index.html'))) throw new Error(`WEB_DIST_DIR has no index.html: ${root} (run npm run build in web/)`);
+    await app.register(fastifyStatic, {
+      root,
+      // Look files up per request (not only those present at startup), so a rebuild needs no restart.
+      wildcard: true,
+      index: false,
+      // We set Cache-Control ourselves below.
+      cacheControl: false,
+      setHeaders: (res, path) => {
+        // Hashed file names never change: cache for a year. index.html is never cached.
+        res.setHeader('Cache-Control', path.includes('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache');
+      },
+    });
+    app.get('/', (_req, reply) => reply.header('Cache-Control', 'no-cache').sendFile('index.html'));
+  }
+
+  // Unknown GET pages go to the dashboard (client-side routes like /alarms); everything else is a JSON 404.
+  app.setNotFoundHandler((req, reply) => {
+    const path = req.url.split('?')[0]!;
+    if (deps.webDir && req.method === 'GET' && !path.startsWith('/api/') && !path.startsWith('/push/') && !/\.[a-z0-9]+$/i.test(path)) {
+      return reply.header('Cache-Control', 'no-cache').sendFile('index.html');
+    }
+    return reply.code(404).send({ error: 'not_found', message: 'Not found' });
+  });
 
   return app;
 }
