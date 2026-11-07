@@ -3,6 +3,7 @@
 Software for a vehicle and asset tracking business (Nigeria and other African
 countries), built on top of the hardware vendor's platform API.
 
+- **Dashboard API (for the web and mobile apps):** [docs/dashboard-api.md](docs/dashboard-api.md)
 - **Vendor API reference (English):** [docs/vendor-api/](docs/vendor-api/README.md)
 - **Backend:** [server/](server/)
 
@@ -38,7 +39,10 @@ forbidden**). So:
 | Storage: history, live state, alarms (de-duplicated), raw log | `server/src/storage/`, `server/src/db/migrations/` | Done, tested on PostgreSQL |
 | Vendor API client: login/token refresh, every documented action, typed | `server/src/vendor/client.ts` | Done, tested against a fake vendor (not yet against the real one) |
 | Rate limiter: per-minute, daily budget, track limit, priorities | `server/src/vendor/rateLimiter.ts` | Done, tested |
-| Customer accounts, dashboard API, web/mobile apps, notifications, billing | | Next |
+| Accounts: platform → resellers → customers (business / individual), users with roles | `server/src/api/`, `server/src/repo/` | Done, tested on PostgreSQL |
+| Login by email or phone (Nigerian formats), scrypt passwords, sessions, brute-force blocking | `server/src/auth/` | Done, tested |
+| Dashboard API: devices, live map, live stream (SSE), history, alarms, engine cut with audit log, subscription expiry | `server/src/api/routes/` | Done, tested on PostgreSQL |
+| Web dashboard, mobile app, SMS/push notifications, payments | | Next |
 
 ## Running locally
 
@@ -51,6 +55,14 @@ cp .env.example .env          # then fill in the values
 npm install
 npm run dev                   # applies migrations, listens on :3000
 ```
+
+Create your company and its first owner (once):
+
+```bash
+ADMIN_PASSWORD='choose-a-strong-one' npm run create-admin -- --company "Your Company Ltd" --name "Your Name" --phone 0803xxxxxxx
+```
+
+Then log in with `POST /api/auth/login` (see [docs/dashboard-api.md](docs/dashboard-api.md)).
 
 Tests:
 

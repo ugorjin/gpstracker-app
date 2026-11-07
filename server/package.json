@@ -14,9 +14,11 @@
     "migrate": "tsx src/db/migrate.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "create-admin": "tsx src/cli/createAdmin.ts"
   },
   "dependencies": {
+    "@fastify/cors": "^11.4.1",
     "fastify": "^5.12.8",
     "pg": "^8.23.1",
     "pino": "^9.14.0",

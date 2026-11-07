@@ -39,6 +39,18 @@ const schema = z.object({
   PUSH_TIMESTAMP_TOLERANCE_MS: z.coerce.number().int().positive().default(5 * 60 * 1000),
   /** Store every raw push body for audit/replay. */
   PUSH_STORE_RAW: bool.default('true'),
+
+  // --- Dashboard API ---
+  /** Comma-separated browser origins allowed to call /api, e.g. https://app.example.com */
+  CORS_ORIGINS: z
+    .string()
+    .default('')
+    .transform((s) => s.split(',').map((o) => o.trim()).filter(Boolean)),
+  /** Country (ISO-2) assumed for phone numbers typed without a country code. */
+  DEFAULT_COUNTRY: z.string().regex(/^[A-Za-z]{2}$/).transform((s) => s.toUpperCase()).default('NG'),
+  SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+  /** No push received for this long = device shown as offline. */
+  OFFLINE_AFTER_MINUTES: z.coerce.number().int().min(1).default(30),
 });
 
 export type Config = z.infer<typeof schema>;

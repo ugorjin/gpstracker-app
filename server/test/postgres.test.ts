@@ -1,6 +1,7 @@
-import pg from 'pg';
+import type pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { migrate } from '../src/db/migrate.js';
+import { createPool } from '../src/db/pool.js';
 import { normalizePush } from '../src/push/normalize.js';
 import { PostgresPushStore } from '../src/storage/postgres.js';
 import { alarmPush, positionPush } from './fixtures.js';
@@ -17,9 +18,9 @@ describe.skipIf(!url)('PostgresPushStore', () => {
   let store: PostgresPushStore;
 
   beforeAll(async () => {
-    pool = new pg.Pool({ connectionString: url });
+    pool = createPool(url!, 2);
     await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
-    expect(await migrate(pool, () => {})).toEqual(['001_push_receiver.sql']);
+    expect(await migrate(pool, () => {})).toContain('001_push_receiver.sql');
     expect(await migrate(pool, () => {})).toEqual([]); // idempotent
     store = new PostgresPushStore(pool);
   });
